@@ -91,8 +91,8 @@ def list_albums_by_year(
 
     return [by_year[year] for year in sorted(by_year.keys())]
 
-
-@cached(cache=LRUCache(maxsize=1))
+# Recalculated every 24 hours to account for year progress.
+@cached(cache=TTLCache(maxsize=1, ttl=86400))
 def compute_year_weights(year_count: int, year_decay_factor: float) -> list[float]:
     assert year_decay_factor >= 1.0
     assert year_decay_factor <= 2.0
