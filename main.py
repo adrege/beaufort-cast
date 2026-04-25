@@ -122,8 +122,9 @@ def list_album_assets(
     immich_base_url: str,
     immich_api_key: str,
     album_id: str,
+    tag_substr_blacklist: frozenset[str],
 ) -> list[tuple[str, str]]:
-    """List all image assets' IDs and content types in the given album."""
+    """List all image assets' IDs and content types in the given album, filtering by blacklisted tags."""
     resp = requests.get(
         f"{immich_base_url}/api/albums/{album_id}",
         headers={
@@ -139,6 +140,12 @@ def list_album_assets(
         id, content_type = asset["id"], asset["originalMimeType"]
         assert isinstance(id, str)
         assert isinstance(content_type, str)
+
+        # Skip assets with blacklisted tags
+        asset_tags = asset.get("tags", [])
+        if is_blacklisted(" ".join([tag.get("name", "") for tag in asset_tags]), tag_substr_blacklist):
+            logging.debug(f"ignoring asset '{id}' due to blacklisted tags")
+            continue
 
         if is_supported_image_format(content_type):
             result.append((id, content_type))
@@ -169,7 +176,7 @@ def pick_random_photo(
     year = random.choices(albums_by_year, weights=year_weights, k=1)[0]
     album = random.choice(year)
 
-    assets = list_album_assets(immich_base_url, immich_api_key, album)
+    assets = list_album_assets(immich_base_url, immich_api_key, album, album_substr_blacklist)
     if len(assets) > 0:
         return random.choice(assets)
 
