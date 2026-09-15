@@ -3,4 +3,5 @@
 - `IMMICH_API_KEY` een API key om toegang te krijgen tot Immich
 - `ALBUM_SUBSTR_BLACKLIST` niet-hoofdlettergevoelige lijst van verboden (delen van) woorden in albumnamen (gescheiden door een `;`)
 - `YEAR_DECAY_FACTOR` de factor waarmee foto's uit oudere jaren minder snel gekozen worden. Bij 1.0 hebben alle jaren dezelfde kans, en bij 2.0 heeft elk jaar twee keer zoveel kans als de vorige.
+- `ALBUM_SIZE_EXPONENT` bepaalt hoe zwaar de grootte van een album meeweegt bij het kiezen van een album binnen een jaar. Het gewicht van een album is `aantal foto's ^ ALBUM_SIZE_EXPONENT`. Bij 0.0 heeft elk album (evenement) dezelfde kans, bij 1.0 heeft elke foto dezelfde kans. Bij 0.5 wordt een album met 4× zoveel foto's 2× zo vaak gekozen.
 - `PHOTO_INTERVAL_SECS` aantal seconden tussen het wisselen van foto's

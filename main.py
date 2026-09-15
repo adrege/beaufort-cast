@@ -107,6 +107,20 @@ def compute_year_weights(year_count: int, year_decay_factor: float) -> list[floa
     return result
 
 
+def compute_album_weights(
+    asset_counts: list[int], album_size_exponent: float
+) -> list[float]:
+    assert album_size_exponent >= 0.0
+    assert album_size_exponent <= 1.0
+
+    # The weights grow with the album size, dampened by the exponent. At 0.0 every
+    # album is equally likely, at 1.0 every photo is equally likely. Empty albums
+    # are never picked (note that 0**0 == 1).
+    return [
+        count**album_size_exponent if count > 0 else 0.0 for count in asset_counts
+    ]
+
+
 def is_supported_image_format(content_type: str) -> bool:
     return content_type in [
         "image/apng",
@@ -179,6 +193,7 @@ def pick_random_photo(
     immich_api_key: str,
     album_substr_blacklist: frozenset[str],
     year_decay_factor: float,
+    album_size_exponent: float,
 ) -> tuple[str, str]:
     albums_by_year = list_albums_by_year(
         immich_base_url,
@@ -188,16 +203,26 @@ def pick_random_photo(
 
     year_weights = compute_year_weights(len(albums_by_year), year_decay_factor)
     year = random.choices(albums_by_year, weights=year_weights, k=1)[0]
-    album = random.choice(year)
 
-    assets = list_album_assets(immich_base_url, immich_api_key, album, album_substr_blacklist)
-    if len(assets) > 0:
+    album_assets = [
+        list_album_assets(immich_base_url, immich_api_key, album, album_substr_blacklist)
+        for album in year
+    ]
+    album_weights = compute_album_weights(
+        [len(assets) for assets in album_assets], album_size_exponent
+    )
+    if sum(album_weights) > 0:
+        assets = random.choices(album_assets, weights=album_weights, k=1)[0]
         return random.choice(assets)
 
-    # Retry if the album has no (valid) assets.
-    logging.warning(f"album '{album}' has no valid assets")
+    # Retry if none of the year's albums have (valid) assets.
+    logging.warning(f"albums {year} have no valid assets")
     return pick_random_photo(
-        immich_base_url, immich_api_key, album_substr_blacklist, year_decay_factor
+        immich_base_url,
+        immich_api_key,
+        album_substr_blacklist,
+        year_decay_factor,
+        album_size_exponent,
     )
 
 
@@ -225,6 +250,7 @@ def main(
     immich_api_key: str,
     album_substr_blacklist: frozenset[str],
     year_decay_factor: float,
+    album_size_exponent: float,
     photo_interval_secs: int,
 ):
     cast = get_chromecast(chromecast_name)
@@ -265,6 +291,7 @@ def main(
             immich_api_key,
             album_substr_blacklist,
             year_decay_factor,
+            album_size_exponent,
         )
         logging.info("casting...")
         logging.debug(f"casting initial photo {id} ({content_type})")
@@ -278,6 +305,7 @@ def main(
                 immich_api_key,
                 album_substr_blacklist,
                 year_decay_factor,
+                album_size_exponent,
             )
 
             url = direct_asset_url(immich_base_url, immich_api_key, id)
@@ -319,5 +347,6 @@ if __name__ == "__main__":
         os.environ["IMMICH_API_KEY"],
         frozenset(os.environ["ALBUM_SUBSTR_BLACKLIST"].split(";")),
         float(os.environ["YEAR_DECAY_FACTOR"]),
+        float(os.environ["ALBUM_SIZE_EXPONENT"]),
         int(os.environ["PHOTO_INTERVAL_SECS"]),
     )
