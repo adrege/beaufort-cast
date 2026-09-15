@@ -126,18 +126,31 @@ def list_album_assets(
     tag_substr_blacklist: frozenset[str],
 ) -> list[tuple[str, str]]:
     """List all image assets' IDs and content types in the given album, filtering by blacklisted tags."""
-    resp = requests.get(
-        f"{immich_base_url}/api/albums/{album_id}",
-        headers={
-            "Accept": "application/json",
-            "x-api-key": immich_api_key,
-        },
-    )
-    resp.raise_for_status()
-    album = resp.json()
+    # Immich no longer includes assets in the album response, so search by album instead.
+    assets = []
+    body: dict = {"albumIds": [album_id], "size": 1000, "withExif": False}
+    while True:
+        resp = requests.post(
+            f"{immich_base_url}/api/search/metadata",
+            headers={
+                "Accept": "application/json",
+                "x-api-key": immich_api_key,
+            },
+            json=body,
+        )
+        resp.raise_for_status()
+        page = resp.json()["assets"]
+        assets.extend(page["items"])
+
+        if page.get("nextCursor"):
+            body["cursor"] = page["nextCursor"]
+        elif page.get("nextPage"):
+            body["page"] = int(page["nextPage"])
+        else:
+            break
 
     result = []
-    for asset in album["assets"]:
+    for asset in assets:
         id, content_type = asset["id"], asset["originalMimeType"]
         assert isinstance(id, str)
         assert isinstance(content_type, str)
