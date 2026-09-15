@@ -8,6 +8,7 @@ import random
 from datetime import datetime
 import re
 from cachetools import LRUCache, cached, TTLCache
+from dotenv import load_dotenv
 import functools
 
 
@@ -293,6 +294,7 @@ def main(
 
 
 if __name__ == "__main__":
+    load_dotenv()
     logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO").upper(),
         format="%(asctime)s %(levelname)s: %(message)s",
